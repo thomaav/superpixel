@@ -1,6 +1,6 @@
-#include <vector>
-
 #pragma once
+
+#include <vector>
 
 struct Image {
 	const char *fp;
