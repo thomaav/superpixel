@@ -2,6 +2,10 @@
 
 #include <iostream>
 #include <cstring>
+#include <cmath>
+#include <tuple>
+#include <climits>
+#include <algorithm>
 
 #include <SDL/SDL.h>
 
@@ -22,7 +26,7 @@ Image::~Image()
 	;
 }
 
-void Image::show()
+void Image::show() const
 {
 	if (SDL_Init(SDL_INIT_VIDEO) < 0) {
 		std::cout << "[SDL_Init error]: Init video failed" << std::endl;
@@ -59,4 +63,128 @@ void Image::show()
 	}
 
 	SDL_Quit();
+}
+
+Color Image::color(int x, int y) const
+{
+	// Extend the image with the edge values.
+	y = y >= height ? height - 1 : y;
+	x = x >= width ? width - 1 : x;
+
+	int32_t rgb = ((int32_t *) &data[0])[y*x + x];
+	int32_t r = (rgb & RMASK) >> 24;
+	int32_t g = (rgb & GMASK) >> 16;
+	int32_t b = (rgb & BMASK) >> 8;
+
+	return Color(r, g, b);
+}
+
+double Image::gradient(int x, int y) const
+{
+	// Values beyond edges are extended to be edge values.
+	double fd_x = (color(x+1, y) - color(x-1, y)).l2norm();
+	double fd_y = (color(x, y+1) - color(x, y-1)).l2norm();
+
+	return fd_x + fd_y;
+}
+
+Pixel Image::minGradNeigh(int x, int y, int kernelSize) const
+{
+	int half = kernelSize / 2;
+	int minGrad = INT_MAX;
+	int minGradX, minGradY;
+
+	for (int i = y - half; i <= y + half; ++i) {
+		for (int j = x - half; j <= x + half; ++j) {
+			if (i < 0 || j < 0 || i >= height || j >= width) {
+				continue;
+			}
+
+			int grad = gradient(j, i);
+			if (grad < minGrad) {
+				minGrad = grad;
+				minGradX = j;
+				minGradY = i;
+			}
+		}
+	}
+
+	return Pixel(minGradX, minGradY);
+}
+
+std::vector<std::vector<Pixel>> Image::initClusters(int s) const
+{
+	std::vector<std::vector<Pixel>> clusters;
+
+	for (double y = 0; y < height; y += s) {
+		for (double x = 0; x < width; x += s) {
+			std::vector<Pixel> cluster;
+			cluster.push_back(minGradNeigh((int) x, (int) y, 3));
+			clusters.push_back(cluster);
+		}
+	}
+
+	return clusters;
+}
+
+void Image::SLIC()
+{
+	double n_sp = 300.0f;
+	double n_tp = height * width;
+	int s = (int) sqrt(n_tp / n_sp);
+
+	// Initialize samples for all pixels with label L(p) = -1 and
+	// distance d(p) = -inf.
+	std::vector<Pixel> pixels;
+	for (size_t y = 0; y < height; ++y) {
+		for (size_t x = 0; x < width; ++x) {
+			Pixel pixel = Pixel(x, y);
+			pixel.color = color(x, y);
+			pixels.push_back(pixel);
+		}
+	}
+
+	std::vector<std::vector<Pixel>> clusters = initClusters(s);
+	std::vector<Pixel> centers;
+	for (auto &v : clusters) {
+		centers.push_back(v[0]);
+	}
+
+	int half = s-1;
+	size_t icenter = 0;
+	for (auto &center : centers) {
+		for (int y = center.y - half; y <= center.y + half; ++y) {
+			for (int x = center.x - half; x <= center.x + half; ++x) {
+				if (x < 0 || y < 0 || x >= height || y >= width)
+					continue;
+
+				if (x == center.x && y == center.y)
+					continue;
+
+				Pixel pixel = pixels[y*x + x];
+				int32_t prevl = pixel.l;
+				double dist = center.dist(pixel, 1.0, s);
+
+				if (dist < pixel.d) {
+					pixel.d = dist;
+					pixel.l = icenter;
+
+					// Remove the pixel from its previous cluster.
+					if (prevl != -1) {
+						clusters[prevl].erase(std::remove(clusters[prevl].begin(),
+														  clusters[prevl].end(),
+														  pixel),
+											  clusters[prevl].end());
+					}
+
+					// Add the pixel to its new cluster.
+					clusters[pixel.l].push_back(pixel);
+				}
+			}
+		}
+
+		++icenter;
+	}
+
+	std::cout << clusters[230].size() << std::endl;
 }
