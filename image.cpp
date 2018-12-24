@@ -7,6 +7,7 @@
 #include <tuple>
 #include <climits>
 #include <algorithm>
+#include <map>
 
 #include <SDL/SDL.h>
 
@@ -129,14 +130,16 @@ Pixel Image::minGradNeigh(int x, int y, int kernelSize) const
 	return Pixel(minGradX, minGradY);
 }
 
-std::vector<std::vector<Pixel>> Image::initClusters(int s) const
+std::vector<std::map<int32_t, Pixel>> Image::initClusters(int s) const
 {
-	std::vector<std::vector<Pixel>> clusters;
+	std::vector<std::map<int32_t, Pixel>> clusters;
 
 	for (double y = 0; y < height; y += s) {
 		for (double x = 0; x < width; x += s) {
-			std::vector<Pixel> cluster;
-			cluster.push_back(minGradNeigh((int) x, (int) y, 3));
+			std::map<int32_t, Pixel> cluster;
+			Pixel center = minGradNeigh((int) x, (int) y, 3);
+			cluster.insert(std::pair<int32_t, Pixel>(center.y*width + center.x,
+													 center));
 			clusters.push_back(cluster);
 		}
 	}
@@ -161,10 +164,10 @@ void Image::SLIC()
 		}
 	}
 
-	std::vector<std::vector<Pixel>> clusters = initClusters(s);
+	std::vector<std::map<int32_t, Pixel>> clusters = initClusters(s);
 	std::vector<Pixel> centers;
-	for (auto &v : clusters) {
-		centers.push_back(v[0]);
+	for (auto &cluster : clusters) {
+		centers.push_back(cluster.begin()->second);
 	}
 
 	int half = s-1;
@@ -188,14 +191,12 @@ void Image::SLIC()
 
 					// Remove the pixel from its previous cluster.
 					if (prevl != -1) {
-						clusters[prevl].erase(std::remove(clusters[prevl].begin(),
-														  clusters[prevl].end(),
-														  pixel),
-											  clusters[prevl].end());
+						clusters[prevl].erase(pixel.y*width + pixel.x);
 					}
 
 					// Add the pixel to its new cluster.
-					clusters[pixel.l].push_back(pixel);
+					clusters[pixel.l].insert(std::pair<int32_t, Pixel>
+											 (pixel.y*width + pixel.x, pixel));
 				}
 			}
 		}
@@ -203,7 +204,11 @@ void Image::SLIC()
 		++icenter;
 	}
 
-	visualizePixels(clusters[150], width, height);
+	std::vector<Pixel> visPix;
+	for (auto &pixel : clusters[151]) {
+		visPix.push_back(pixel.second);
+	}
+	visualizePixels(visPix, width, height);
 }
 
 void visualizePixels(std::vector<Pixel> &pixels, unsigned width, unsigned height)

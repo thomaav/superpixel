@@ -6,6 +6,7 @@
 #include <tuple>
 #include <climits>
 #include <ostream>
+#include <map>
 
 #define RMASK 4278190080
 #define GMASK 16711680
@@ -37,8 +38,7 @@ struct Color {
 
 struct Pixel {
 	Color color = Color(0, 0, 0);
-	int32_t x;
-	int32_t y;
+	int32_t x, y;
 	int32_t l = -1;
 	int32_t d = INT_MAX;
 
@@ -91,7 +91,7 @@ struct Image {
 	Color color(int x, int y) const;
 	double gradient(int x, int y) const;
 	Pixel minGradNeigh(int x, int y, int width) const;
-	std::vector<std::vector<Pixel>> initClusters(int s) const;
+	std::vector<std::map<int32_t, Pixel>> initClusters(int s) const;
 	void SLIC();
 };
 
