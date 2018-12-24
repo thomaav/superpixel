@@ -75,10 +75,10 @@ void Image::show() const
 void Image::setPixels(std::vector<Pixel> &pixels)
 {
 	for (auto &pixel: pixels) {
-		data[4*pixel.y*pixel.x + 4*pixel.x]     = 0xFF;
-		data[4*pixel.y*pixel.x + 4*pixel.x + 1] = 0xFF;
-		data[4*pixel.y*pixel.x + 4*pixel.x + 2] = 0xFF;
-		data[4*pixel.y*pixel.x + 4*pixel.x + 3] = 0xFF;
+		data[4*pixel.y*width + 4*pixel.x]     = 0xFF;
+		data[4*pixel.y*width + 4*pixel.x + 1] = 0xFF;
+		data[4*pixel.y*width + 4*pixel.x + 2] = 0xFF;
+		data[4*pixel.y*width + 4*pixel.x + 3] = 0xFF;
 	}
 }
 
