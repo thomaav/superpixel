@@ -175,7 +175,7 @@ void Image::SLIC()
 	for (auto &center : centers) {
 		for (int y = center.y - half; y <= center.y + half; ++y) {
 			for (int x = center.x - half; x <= center.x + half; ++x) {
-				if (x < 0 || y < 0 || x >= height || y >= width)
+				if (x < 0 || y < 0 || x >= width || y >= height)
 					continue;
 
 				if (x == center.x && y == center.y)
@@ -205,10 +205,18 @@ void Image::SLIC()
 	}
 
 	std::vector<Pixel> visPix;
-	for (auto &pixel : clusters[151]) {
+	for (auto &pixel : clusters[1]) {
 		visPix.push_back(pixel.second);
 	}
 	visualizePixels(visPix, width, height);
+
+	// std::vector<Pixel> visPix;
+	// for (auto &cluster : clusters) {
+	// 	for (auto &pixel : cluster) {
+	// 		visPix.push_back(pixel.second);
+	// 	}
+	// }
+	// visualizePixels(visPix, width, height);
 }
 
 void visualizePixels(std::vector<Pixel> &pixels, unsigned width, unsigned height)
