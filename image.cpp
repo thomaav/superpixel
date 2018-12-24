@@ -167,8 +167,6 @@ void Image::SLIC()
 		centers.push_back(v[0]);
 	}
 
-	visualizePixels(centers, width, height);
-
 	int half = s-1;
 	size_t icenter = 0;
 	for (auto &center : centers) {
@@ -180,7 +178,7 @@ void Image::SLIC()
 				if (x == center.x && y == center.y)
 					continue;
 
-				Pixel pixel = pixels[y*x + x];
+				Pixel &pixel = pixels[y*width + x];
 				int32_t prevl = pixel.l;
 				double dist = center.dist(pixel, 1.0, s);
 
@@ -205,12 +203,22 @@ void Image::SLIC()
 		++icenter;
 	}
 
-	std::cout << "gdb" << std::endl;
+	visualizePixels(clusters[150], width, height);
 }
 
 void visualizePixels(std::vector<Pixel> &pixels, unsigned width, unsigned height)
 {
 	Image img = Image(width, height);
 	img.setPixels(pixels);
+	img.show();
+}
+
+void visualizePixels(std::vector<std::vector<Pixel>> &clusters,
+					 unsigned width, unsigned height)
+{
+	Image img = Image(width, height);
+	for (auto &pixels : clusters) {
+		img.setPixels(pixels);
+	}
 	img.show();
 }

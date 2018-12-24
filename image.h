@@ -96,4 +96,6 @@ struct Image {
 };
 
 void visualizePixels(std::vector<Pixel> &pixels, unsigned width, unsigned height);
+void visualizePixels(std::vector<std::vector<Pixel>> &clusters,
+		     unsigned width, unsigned height);
 
