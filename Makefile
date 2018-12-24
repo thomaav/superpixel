@@ -1,5 +1,5 @@
 CC=clang++
-CFLAGS=-Wall -std=c++11
+CFLAGS=-Wall -std=c++11 -g
 LDLIBS=-lSDL
 
 OBJ_DIR=objects

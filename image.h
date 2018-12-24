@@ -5,6 +5,7 @@
 #include <cmath>
 #include <tuple>
 #include <climits>
+#include <ostream>
 
 #define RMASK 4278190080
 #define GMASK 16711680
@@ -69,6 +70,11 @@ struct Pixel {
 
 		return sqrt(pow(dc, 2) + pow(ds/2, 2)*pow(c, 2));
 	}
+
+	friend std::ostream &operator<<(std::ostream &os, Pixel const &px)
+	{
+		return os << "(" << px.x << "," << px.y << ")";
+	}
 };
 
 struct Image {
@@ -77,9 +83,11 @@ struct Image {
 	unsigned width, height;
 
 	Image(const char *fp);
+	Image(unsigned width, unsigned height);
 	~Image();
 
 	void show() const;
+	void setPixels(std::vector<Pixel> &pixels);
 	Color color(int x, int y) const;
 	double gradient(int x, int y) const;
 	Pixel minGradNeigh(int x, int y, int width) const;
@@ -87,4 +95,5 @@ struct Image {
 	void SLIC();
 };
 
+void visualizePixels(std::vector<Pixel> &pixels, unsigned width, unsigned height);
 

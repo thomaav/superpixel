@@ -1,4 +1,5 @@
 #include "image.h"
+#include "util.h"
 
 #include <iostream>
 #include <cstring>
@@ -19,6 +20,12 @@ Image::Image(const char *fp)
 		// Exception?
 		std::cout << "[lodepng::decode error]: " << lodepng_error_text(err) << std::endl;
 	}
+}
+
+Image::Image(unsigned width, unsigned height)
+	: width(width), height(height)
+{
+	data.assign(height*width * 4, 0);
 }
 
 Image::~Image()
@@ -63,6 +70,16 @@ void Image::show() const
 	}
 
 	SDL_Quit();
+}
+
+void Image::setPixels(std::vector<Pixel> &pixels)
+{
+	for (auto &pixel: pixels) {
+		data[4*pixel.y*pixel.x + 4*pixel.x]     = 0xFF;
+		data[4*pixel.y*pixel.x + 4*pixel.x + 1] = 0xFF;
+		data[4*pixel.y*pixel.x + 4*pixel.x + 2] = 0xFF;
+		data[4*pixel.y*pixel.x + 4*pixel.x + 3] = 0xFF;
+	}
 }
 
 Color Image::color(int x, int y) const
@@ -150,6 +167,8 @@ void Image::SLIC()
 		centers.push_back(v[0]);
 	}
 
+	visualizePixels(centers, width, height);
+
 	int half = s-1;
 	size_t icenter = 0;
 	for (auto &center : centers) {
@@ -186,5 +205,12 @@ void Image::SLIC()
 		++icenter;
 	}
 
-	std::cout << clusters[230].size() << std::endl;
+	std::cout << "gdb" << std::endl;
+}
+
+void visualizePixels(std::vector<Pixel> &pixels, unsigned width, unsigned height)
+{
+	Image img = Image(width, height);
+	img.setPixels(pixels);
+	img.show();
 }
