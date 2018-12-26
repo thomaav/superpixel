@@ -7,11 +7,9 @@
 #include <climits>
 #include <ostream>
 #include <map>
+#include <cfloat>
 
-#define RMASK 4278190080
-#define GMASK 16711680
-#define BMASK 65280
-#define ITERATIONS 10
+#define ITERATIONS 1
 
 struct Color {
 	double r;
@@ -35,13 +33,18 @@ struct Color {
 	{
 		return Color(r - rhs.r, g - rhs.g, b - rhs.b);
 	}
+
+	friend std::ostream &operator<<(std::ostream &os, Color const &color)
+	{
+		return os << "(" << color.r << "," << color.g << "," << color.b << ")";
+	}
 };
 
 struct Pixel {
 	Color color = Color(0, 0, 0);
 	double x, y;
 	int32_t l = -1;
-	int32_t d = INT_MAX;
+	double d = FLT_MAX;
 
 	Pixel(double x, double y)
 		: x(x), y(y) {};

@@ -90,10 +90,9 @@ Color Image::color(int x, int y) const
 	y = y >= height ? height - 1 : y;
 	x = x >= width ? width - 1 : x;
 
-	int32_t rgb = ((int32_t *) &data[0])[y*x + x];
-	int32_t r = (rgb & RMASK) >> 24;
-	int32_t g = (rgb & GMASK) >> 16;
-	int32_t b = (rgb & BMASK) >> 8;
+	int32_t r = data[4*y*width + 4*x];
+	int32_t g = data[4*y*width + 4*x + 1];
+	int32_t b = data[4*y*width + 4*x + 2];
 
 	return Color(r, g, b);
 }
@@ -110,8 +109,8 @@ double Image::gradient(int x, int y) const
 Pixel Image::minGradNeigh(int x, int y, int kernelSize) const
 {
 	int half = kernelSize / 2;
-	int minGrad = INT_MAX;
 	int minGradX, minGradY;
+	double minGrad = FLT_MAX;
 
 	for (int i = y - half; i <= y + half; ++i) {
 		for (int j = x - half; j <= x + half; ++j) {
@@ -138,9 +137,7 @@ std::vector<std::map<int32_t, Pixel>> Image::initClusters(int s) const
 		for (double x = 0; x < width; x += s) {
 			std::map<int32_t, Pixel> cluster;
 			Pixel center = minGradNeigh((int) x, (int) y, 3);
-			center.color.r = data[4*center.y*width + 4*center.x];
-			center.color.g = data[4*center.y*width + 4*center.x + 1];
-			center.color.b = data[4*center.y*width + 4*center.x + 2];
+			center.color = color(center.x, center.y);
 			cluster.insert(std::pair<int32_t, Pixel>(center.y*width + center.x,
 													 center));
 			clusters.push_back(cluster);
@@ -175,6 +172,13 @@ void Image::SLIC()
 
 	for (int i = 0; i < ITERATIONS; ++i) {
 		println("Iteration " << i+1 << "/" << ITERATIONS);
+
+		// Reset all distance values.
+		for (size_t y = 0; y < height; ++y) {
+			for (size_t x = 0; x < width; ++x) {
+				pixels[y*width + x].d = FLT_MAX;
+			}
+		}
 
 		// Assign pixels to centers.
 		int half = s-1;
@@ -233,8 +237,20 @@ void Image::SLIC()
 		}
 	}
 
+	// Superpixelate the image.
+	for (size_t y = 0; y < height; ++y) {
+		for (size_t x = 0; x < width; ++x) {
+			Pixel center = centers[pixels[y*x + x].l];
+			data[4*y*width + 4*x] = (unsigned char) center.color.r;
+			data[4*y*width + 4*x + 1] = (unsigned char) center.color.g;
+			data[4*y*width + 4*x + 2] = (unsigned char) center.color.b;
+		}
+	}
+
+	show();
+
 	// std::vector<Pixel> visPix;
-	// for (auto &pixel : clusters[25]) {
+	// for (auto &pixel : clusters[50]) {
 	// 	visPix.push_back(pixel.second);
 	// }
 	// visualizePixels(visPix, width, height);
