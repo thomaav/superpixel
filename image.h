@@ -11,13 +11,14 @@
 #define RMASK 4278190080
 #define GMASK 16711680
 #define BMASK 65280
+#define ITERATIONS 10
 
 struct Color {
-	int32_t r;
-	int32_t g;
-	int32_t b;
+	double r;
+	double g;
+	double b;
 
-	Color(int32_t r, int32_t g, int32_t b)
+	Color(double r, double g, double b)
 		: r(r), g(g), b(b) {}
 
 	double l2norm() const
@@ -38,11 +39,11 @@ struct Color {
 
 struct Pixel {
 	Color color = Color(0, 0, 0);
-	int32_t x, y;
+	double x, y;
 	int32_t l = -1;
 	int32_t d = INT_MAX;
 
-	Pixel(int32_t x, int32_t y)
+	Pixel(double x, double y)
 		: x(x), y(y) {};
 
 	bool operator==(const Pixel &rhs) const

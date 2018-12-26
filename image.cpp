@@ -76,10 +76,11 @@ void Image::show() const
 void Image::setPixels(std::vector<Pixel> &pixels)
 {
 	for (auto &pixel: pixels) {
-		data[4*pixel.y*width + 4*pixel.x]     = 0xFF;
-		data[4*pixel.y*width + 4*pixel.x + 1] = 0xFF;
-		data[4*pixel.y*width + 4*pixel.x + 2] = 0xFF;
-		data[4*pixel.y*width + 4*pixel.x + 3] = 0xFF;
+		int32_t x = (int) pixel.x;
+		int32_t y = (int) pixel.y;
+		data[4*y*width + 4*x]     = 0xFF;
+		data[4*y*width + 4*x + 1] = 0xFF;
+		data[4*y*width + 4*x + 2] = 0xFF;
 	}
 }
 
@@ -114,9 +115,8 @@ Pixel Image::minGradNeigh(int x, int y, int kernelSize) const
 
 	for (int i = y - half; i <= y + half; ++i) {
 		for (int j = x - half; j <= x + half; ++j) {
-			if (i < 0 || j < 0 || i >= height || j >= width) {
+			if (i < 0 || j < 0 || i >= height || j >= width)
 				continue;
-			}
 
 			int grad = gradient(j, i);
 			if (grad < minGrad) {
@@ -138,6 +138,9 @@ std::vector<std::map<int32_t, Pixel>> Image::initClusters(int s) const
 		for (double x = 0; x < width; x += s) {
 			std::map<int32_t, Pixel> cluster;
 			Pixel center = minGradNeigh((int) x, (int) y, 3);
+			center.color.r = data[4*center.y*width + 4*center.x];
+			center.color.g = data[4*center.y*width + 4*center.x + 1];
+			center.color.b = data[4*center.y*width + 4*center.x + 2];
 			cluster.insert(std::pair<int32_t, Pixel>(center.y*width + center.x,
 													 center));
 			clusters.push_back(cluster);
@@ -170,45 +173,71 @@ void Image::SLIC()
 		centers.push_back(cluster.begin()->second);
 	}
 
-	int half = s-1;
-	size_t icenter = 0;
-	for (auto &center : centers) {
-		for (int y = center.y - half; y <= center.y + half; ++y) {
-			for (int x = center.x - half; x <= center.x + half; ++x) {
-				if (x < 0 || y < 0 || x >= width || y >= height)
-					continue;
+	for (int i = 0; i < ITERATIONS; ++i) {
+		println("Iteration " << i+1 << "/" << ITERATIONS);
 
-				if (x == center.x && y == center.y)
-					continue;
+		// Assign pixels to centers.
+		int half = s-1;
+		size_t icenter = 0;
+		for (auto &center : centers) {
+			for (int y = center.y - half; y <= center.y + half; ++y) {
+				for (int x = center.x - half; x <= center.x + half; ++x) {
+					if (x < 0 || y < 0 || x >= width || y >= height)
+						continue;
 
-				Pixel &pixel = pixels[y*width + x];
-				int32_t prevl = pixel.l;
-				double dist = center.dist(pixel, 1.0, s);
+					Pixel &pixel = pixels[y*width + x];
+					int32_t prevl = pixel.l;
+					double dist = center.dist(pixel, 1.0, s);
 
-				if (dist < pixel.d) {
-					pixel.d = dist;
-					pixel.l = icenter;
+					if (dist < pixel.d) {
+						pixel.d = dist;
+						pixel.l = icenter;
 
-					// Remove the pixel from its previous cluster.
-					if (prevl != -1) {
-						clusters[prevl].erase(pixel.y*width + pixel.x);
+						if (prevl != -1) {
+							clusters[prevl].erase(pixel.y*width + pixel.x);
+						}
+
+						clusters[pixel.l].insert(std::pair<int32_t, Pixel>
+												 (pixel.y*width + pixel.x, pixel));
 					}
-
-					// Add the pixel to its new cluster.
-					clusters[pixel.l].insert(std::pair<int32_t, Pixel>
-											 (pixel.y*width + pixel.x, pixel));
 				}
 			}
+
+			++icenter;
 		}
 
-		++icenter;
+		// Recalculate centers.
+		centers.clear();
+		for (auto &cluster : clusters) {
+			double r = 0, g = 0, b = 0;
+			double x = 0, y = 0;
+
+			for (auto &pixel : cluster) {
+				Pixel *px = &pixel.second;
+				r += px->color.r;
+				g += px->color.g;
+				b += px->color.b;
+				x += px->x;
+				y += px->y;
+			}
+
+			r /= cluster.size();
+			g /= cluster.size();
+			b /= cluster.size();
+			x /= cluster.size();
+			y /= cluster.size();
+
+			Pixel center = Pixel(x, y);
+			center.color = Color(r, g, b);
+			centers.push_back(center);
+		}
 	}
 
-	std::vector<Pixel> visPix;
-	for (auto &pixel : clusters[1]) {
-		visPix.push_back(pixel.second);
-	}
-	visualizePixels(visPix, width, height);
+	// std::vector<Pixel> visPix;
+	// for (auto &pixel : clusters[25]) {
+	// 	visPix.push_back(pixel.second);
+	// }
+	// visualizePixels(visPix, width, height);
 
 	// std::vector<Pixel> visPix;
 	// for (auto &cluster : clusters) {
