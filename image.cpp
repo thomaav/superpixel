@@ -18,7 +18,6 @@ Image::Image(const char *fp)
 {
 	unsigned err = lodepng::decode(data, width, height, fp);
 	if (err) {
-		// Exception?
 		std::cout << "[lodepng::decode error]: " << lodepng_error_text(err) << std::endl;
 	}
 }
@@ -71,6 +70,14 @@ void Image::show() const
 	}
 
 	SDL_Quit();
+}
+
+void Image::save(const char *fp) const
+{
+	unsigned err = lodepng::encode(fp, data, width, height);
+	if (err) {
+		std::cout << "[lodepng::decode error]: " << lodepng_error_text(err) << std::endl;
+	}
 }
 
 void Image::setPixelColors(std::vector<Pixel> &pixels)
@@ -157,7 +164,7 @@ std::vector<Pixel> Image::initCenters(int s) const
 
 void Image::SLIC()
 {
-	double n_sp = 200.0f;
+	double n_sp = 400.0f;
 	double n_tp = height * width;
 	int s = (int) sqrt(n_tp / n_sp);
 	int half_sp = s-1;

@@ -91,6 +91,7 @@ struct Image {
 	~Image();
 
 	void show() const;
+	void save(const char *fp) const;
 	void setPixelColors(std::vector<Pixel> &pixels);
 	void setPixelsWhite(std::vector<Pixel> &pixels);
 	Color getPixelColor(int x, int y) const;
