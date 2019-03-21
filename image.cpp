@@ -73,7 +73,7 @@ void Image::show() const
 	SDL_Quit();
 }
 
-void Image::setPixels(std::vector<Pixel> &pixels)
+void Image::setPixelColors(std::vector<Pixel> &pixels)
 {
 	for (auto &pixel: pixels) {
 		int32_t x = (int) pixel.x;
@@ -95,7 +95,7 @@ void Image::setPixelsWhite(std::vector<Pixel> &pixels)
 	}
 }
 
-Color Image::color(int x, int y) const
+Color Image::getPixelColor(int x, int y) const
 {
 	// Extend the image with the edge values.
 	y = y >= height ? height - 1 : y;
@@ -111,8 +111,8 @@ Color Image::color(int x, int y) const
 double Image::gradient(int x, int y) const
 {
 	// Values beyond edges are extended to be edge values.
-	double fd_x = (color(x+1, y) - color(x-1, y)).l2norm();
-	double fd_y = (color(x, y+1) - color(x, y-1)).l2norm();
+	double fd_x = (getPixelColor(x+1, y) - getPixelColor(x-1, y)).l2norm();
+	double fd_y = (getPixelColor(x, y+1) - getPixelColor(x, y-1)).l2norm();
 
 	return fd_x + fd_y;
 }
@@ -147,7 +147,7 @@ std::vector<Pixel> Image::initCenters(int s) const
 	for (double y = 0; y < height; y += s) {
 		for (double x = 0; x < width; x += s) {
 			Pixel center = minGradNeigh((int) x, (int) y, 3);
-			center.color = color(center.x, center.y);
+			center.color = getPixelColor(center.x, center.y);
 			centers.push_back(center);
 		}
 	}
@@ -160,6 +160,7 @@ void Image::SLIC()
 	double n_sp = 200.0f;
 	double n_tp = height * width;
 	int s = (int) sqrt(n_tp / n_sp);
+	int half_sp = s-1;
 
 	// Initialize samples for all pixels with label L(p) = -1 and
 	// distance d(p) = -inf.
@@ -167,7 +168,7 @@ void Image::SLIC()
 	for (size_t y = 0; y < height; ++y) {
 		for (size_t x = 0; x < width; ++x) {
 			Pixel pixel = Pixel(x, y);
-			pixel.color = color(x, y);
+			pixel.color = getPixelColor(x, y);
 			pixels.push_back(pixel);
 		}
 	}
@@ -186,12 +187,12 @@ void Image::SLIC()
 			}
 		}
 
-		// Assign pixels to centers.
-		int half = s-1;
-		size_t icenter = 0;
-		for (auto &center : centers) {
-			for (int y = center.y - half; y <= center.y + half; ++y) {
-				for (int x = center.x - half; x <= center.x + half; ++x) {
+		// Assign pixels to the center that is found to be the closest
+		// (using color distance and euclidean distance).
+		for (size_t icenter = 0; icenter < centers.size(); ++icenter) {
+			Pixel &center = centers[icenter];
+			for (int y = center.y - half_sp; y <= center.y + half_sp; ++y) {
+				for (int x = center.x - half_sp; x <= center.x + half_sp; ++x) {
 					if (x < 0 || y < 0 || x >= width || y >= height)
 						continue;
 
@@ -204,11 +205,10 @@ void Image::SLIC()
 					}
 				}
 			}
-
-			++icenter;
 		}
 
-		// Recalculate centers.
+		// Reset center values (as the value of the centers are only
+		// determined by the clusters that were found above).
 		for (size_t c = 0; c < centers.size(); ++c) {
 			centers[c].color = Color(0, 0, 0);
 			centers[c].x = 0.0;
@@ -216,10 +216,11 @@ void Image::SLIC()
 			centerCounts[c] = 0;
 		}
 
+		// Find new center values by summing the rgb and xy values of
+		// the clusters we found above.
 		for (size_t y = 0; y < height; ++y) {
 			for (size_t x = 0; x < width; ++x) {
 				Pixel &pixel = pixels[y*width + x];
-
 				if (pixel.l != -1) {
 					centers[pixel.l].color = centers[pixel.l].color + pixel.color;
 					centers[pixel.l].x += pixel.x;
@@ -248,6 +249,9 @@ void Image::SLIC()
 		}
 	}
 
+	// Lacks enforcement of connectivity.
+	;
+
 	show();
 }
 
@@ -265,7 +269,7 @@ void visualizeAssignedCenters(std::vector<Pixel> &pixels, unsigned width, unsign
 	}
 
 	Image img = Image(width, height);
-	img.setPixels(pixels);
+	img.setPixelColors(pixels);
 	img.show();
 	exit(0);
 }

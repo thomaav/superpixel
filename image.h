@@ -91,11 +91,13 @@ struct Image {
 	~Image();
 
 	void show() const;
-	void setPixels(std::vector<Pixel> &pixels);
+	void setPixelColors(std::vector<Pixel> &pixels);
 	void setPixelsWhite(std::vector<Pixel> &pixels);
-	Color color(int x, int y) const;
+	Color getPixelColor(int x, int y) const;
+
 	double gradient(int x, int y) const;
 	Pixel minGradNeigh(int x, int y, int width) const;
+
 	std::vector<Pixel> initCenters(int s) const;
 	void SLIC();
 };
