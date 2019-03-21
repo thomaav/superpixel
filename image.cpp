@@ -78,6 +78,17 @@ void Image::setPixels(std::vector<Pixel> &pixels)
 	for (auto &pixel: pixels) {
 		int32_t x = (int) pixel.x;
 		int32_t y = (int) pixel.y;
+		data[4*y*width + 4*x]     = pixel.color.r;
+		data[4*y*width + 4*x + 1] = pixel.color.g;
+		data[4*y*width + 4*x + 2] = pixel.color.b;
+	}
+}
+
+void Image::setPixelsWhite(std::vector<Pixel> &pixels)
+{
+	for (auto &pixel: pixels) {
+		int32_t x = (int) pixel.x;
+		int32_t y = (int) pixel.y;
 		data[4*y*width + 4*x]     = 0xFF;
 		data[4*y*width + 4*x + 1] = 0xFF;
 		data[4*y*width + 4*x + 2] = 0xFF;
@@ -129,27 +140,24 @@ Pixel Image::minGradNeigh(int x, int y, int kernelSize) const
 	return Pixel(minGradX, minGradY);
 }
 
-std::vector<std::map<int32_t, Pixel>> Image::initClusters(int s) const
+std::vector<Pixel> Image::initCenters(int s) const
 {
-	std::vector<std::map<int32_t, Pixel>> clusters;
+	std::vector<Pixel> centers;
 
 	for (double y = 0; y < height; y += s) {
 		for (double x = 0; x < width; x += s) {
-			std::map<int32_t, Pixel> cluster;
 			Pixel center = minGradNeigh((int) x, (int) y, 3);
 			center.color = color(center.x, center.y);
-			cluster.insert(std::pair<int32_t, Pixel>(center.y*width + center.x,
-													 center));
-			clusters.push_back(cluster);
+			centers.push_back(center);
 		}
 	}
 
-	return clusters;
+	return centers;
 }
 
 void Image::SLIC()
 {
-	double n_sp = 300.0f;
+	double n_sp = 200.0f;
 	double n_tp = height * width;
 	int s = (int) sqrt(n_tp / n_sp);
 
@@ -164,11 +172,9 @@ void Image::SLIC()
 		}
 	}
 
-	std::vector<std::map<int32_t, Pixel>> clusters = initClusters(s);
-	std::vector<Pixel> centers;
-	for (auto &cluster : clusters) {
-		centers.push_back(cluster.begin()->second);
-	}
+	// Centers should be according to the distance <s> between them.
+	std::vector<Pixel> centers = initCenters(s);
+	std::vector<int> centerCounts(centers.size());
 
 	for (int i = 0; i < ITERATIONS; ++i) {
 		println("Iteration " << i+1 << "/" << ITERATIONS);
@@ -190,19 +196,11 @@ void Image::SLIC()
 						continue;
 
 					Pixel &pixel = pixels[y*width + x];
-					int32_t prevl = pixel.l;
-					double dist = center.dist(pixel, 1.0, s);
+					double dist = center.dist(pixel, 15.0, s);
 
 					if (dist < pixel.d) {
 						pixel.d = dist;
 						pixel.l = icenter;
-
-						if (prevl != -1) {
-							clusters[prevl].erase(pixel.y*width + pixel.x);
-						}
-
-						clusters[pixel.l].insert(std::pair<int32_t, Pixel>
-												 (pixel.y*width + pixel.x, pixel));
 					}
 				}
 			}
@@ -211,36 +209,39 @@ void Image::SLIC()
 		}
 
 		// Recalculate centers.
-		centers.clear();
-		for (auto &cluster : clusters) {
-			double r = 0, g = 0, b = 0;
-			double x = 0, y = 0;
+		for (size_t c = 0; c < centers.size(); ++c) {
+			centers[c].color = Color(0, 0, 0);
+			centers[c].x = 0.0;
+			centers[c].y = 0.0;
+			centerCounts[c] = 0;
+		}
 
-			for (auto &pixel : cluster) {
-				Pixel *px = &pixel.second;
-				r += px->color.r;
-				g += px->color.g;
-				b += px->color.b;
-				x += px->x;
-				y += px->y;
+		for (size_t y = 0; y < height; ++y) {
+			for (size_t x = 0; x < width; ++x) {
+				Pixel &pixel = pixels[y*width + x];
+
+				if (pixel.l != -1) {
+					centers[pixel.l].color = centers[pixel.l].color + pixel.color;
+					centers[pixel.l].x += pixel.x;
+					centers[pixel.l].y += pixel.y;
+					centerCounts[pixel.l] += 1;
+				}
 			}
+		}
 
-			r /= cluster.size();
-			g /= cluster.size();
-			b /= cluster.size();
-			x /= cluster.size();
-			y /= cluster.size();
-
-			Pixel center = Pixel(x, y);
-			center.color = Color(r, g, b);
-			centers.push_back(center);
+		for (size_t c = 0; c < centers.size(); ++c) {
+			centers[c].color.r /= centerCounts[c];
+			centers[c].color.g /= centerCounts[c];
+			centers[c].color.b /= centerCounts[c];
+			centers[c].x /= centerCounts[c];
+			centers[c].y /= centerCounts[c];
 		}
 	}
 
 	// Superpixelate the image.
 	for (size_t y = 0; y < height; ++y) {
 		for (size_t x = 0; x < width; ++x) {
-			Pixel center = centers[pixels[y*x + x].l];
+			Pixel center = centers[pixels[y*width + x].l];
 			data[4*y*width + 4*x] = (unsigned char) center.color.r;
 			data[4*y*width + 4*x + 1] = (unsigned char) center.color.g;
 			data[4*y*width + 4*x + 2] = (unsigned char) center.color.b;
@@ -248,35 +249,23 @@ void Image::SLIC()
 	}
 
 	show();
-
-	// std::vector<Pixel> visPix;
-	// for (auto &pixel : clusters[50]) {
-	// 	visPix.push_back(pixel.second);
-	// }
-	// visualizePixels(visPix, width, height);
-
-	// std::vector<Pixel> visPix;
-	// for (auto &cluster : clusters) {
-	// 	for (auto &pixel : cluster) {
-	// 		visPix.push_back(pixel.second);
-	// 	}
-	// }
-	// visualizePixels(visPix, width, height);
 }
 
 void visualizePixels(std::vector<Pixel> &pixels, unsigned width, unsigned height)
 {
 	Image img = Image(width, height);
-	img.setPixels(pixels);
+	img.setPixelsWhite(pixels);
 	img.show();
 }
 
-void visualizePixels(std::vector<std::vector<Pixel>> &clusters,
-					 unsigned width, unsigned height)
+void visualizeAssignedCenters(std::vector<Pixel> &pixels, unsigned width, unsigned height)
 {
-	Image img = Image(width, height);
-	for (auto &pixels : clusters) {
-		img.setPixels(pixels);
+	for (auto &pixel : pixels) {
+		pixel.color = Color(pixel.l, pixel.l, pixel.l);
 	}
+
+	Image img = Image(width, height);
+	img.setPixels(pixels);
 	img.show();
+	exit(0);
 }

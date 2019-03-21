@@ -9,7 +9,7 @@
 #include <map>
 #include <cfloat>
 
-#define ITERATIONS 1
+#define ITERATIONS 10
 
 struct Color {
 	double r;
@@ -57,14 +57,14 @@ struct Pixel {
 	double colorDist(Pixel &rhs) const
 	{
 		return sqrt(pow(color.r - rhs.color.r, 2) +
-			    pow(color.g - rhs.color.g, 2) +
-			    pow(color.b - rhs.color.b, 2));
+					pow(color.g - rhs.color.g, 2) +
+					pow(color.b - rhs.color.b, 2));
 	}
 
 	double euclidDist(Pixel &rhs) const
 	{
 		return sqrt(pow(x - rhs.x, 2) +
-			    pow(y - rhs.y, 2));
+					pow(y - rhs.y, 2));
 	}
 
 	double dist(Pixel &rhs, double c, double s) const
@@ -92,14 +92,13 @@ struct Image {
 
 	void show() const;
 	void setPixels(std::vector<Pixel> &pixels);
+	void setPixelsWhite(std::vector<Pixel> &pixels);
 	Color color(int x, int y) const;
 	double gradient(int x, int y) const;
 	Pixel minGradNeigh(int x, int y, int width) const;
-	std::vector<std::map<int32_t, Pixel>> initClusters(int s) const;
+	std::vector<Pixel> initCenters(int s) const;
 	void SLIC();
 };
 
 void visualizePixels(std::vector<Pixel> &pixels, unsigned width, unsigned height);
-void visualizePixels(std::vector<std::vector<Pixel>> &clusters,
-		     unsigned width, unsigned height);
-
+void visualizeAssignedCenters(std::vector<Pixel> &pixels, unsigned width, unsigned height);
