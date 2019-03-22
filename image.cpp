@@ -164,33 +164,37 @@ std::vector<Pixel> Image::initCenters(int s) const
 
 void Image::SLIC()
 {
-	double n_sp = 400.0f;
+	double n_sp = 800.0f;
 	double n_tp = height * width;
 	int s = (int) sqrt(n_tp / n_sp);
-	int half_sp = s-1;
 
 	// Initialize samples for all pixels with label L(p) = -1 and
 	// distance d(p) = -inf.
-	std::vector<Pixel> pixels;
+	std::vector<std::vector<Pixel>> pixels;
 	for (size_t y = 0; y < height; ++y) {
+		std::vector<Pixel> row;
+
 		for (size_t x = 0; x < width; ++x) {
 			Pixel pixel = Pixel(x, y);
 			pixel.color = getPixelColor(x, y);
-			pixels.push_back(pixel);
+			row.push_back(pixel);
 		}
+
+		pixels.push_back(row);
 	}
 
 	// Centers should be according to the distance <s> between them.
 	std::vector<Pixel> centers = initCenters(s);
 	std::vector<int> centerCounts(centers.size());
 
+	// SLIC lives in here.
 	for (int i = 0; i < ITERATIONS; ++i) {
 		println("Iteration " << i+1 << "/" << ITERATIONS);
 
 		// Reset all distance values.
 		for (size_t y = 0; y < height; ++y) {
 			for (size_t x = 0; x < width; ++x) {
-				pixels[y*width + x].d = FLT_MAX;
+				pixels[y][x].d = FLT_MAX;
 			}
 		}
 
@@ -198,13 +202,13 @@ void Image::SLIC()
 		// (using color distance and euclidean distance).
 		for (size_t icenter = 0; icenter < centers.size(); ++icenter) {
 			Pixel &center = centers[icenter];
-			for (int y = center.y - half_sp; y <= center.y + half_sp; ++y) {
-				for (int x = center.x - half_sp; x <= center.x + half_sp; ++x) {
+			for (int y = center.y - s; y <= center.y + s; ++y) {
+				for (int x = center.x - s; x <= center.x + s; ++x) {
 					if (x < 0 || y < 0 || x >= width || y >= height)
 						continue;
 
-					Pixel &pixel = pixels[y*width + x];
-					double dist = center.dist(pixel, 15.0, s);
+					Pixel &pixel = pixels[y][x];
+					double dist = center.dist(pixel, 40.0, s);
 
 					if (dist < pixel.d) {
 						pixel.d = dist;
@@ -227,7 +231,7 @@ void Image::SLIC()
 		// the clusters we found above.
 		for (size_t y = 0; y < height; ++y) {
 			for (size_t x = 0; x < width; ++x) {
-				Pixel &pixel = pixels[y*width + x];
+				Pixel &pixel = pixels[y][x];
 				if (pixel.l != -1) {
 					centers[pixel.l].color = centers[pixel.l].color + pixel.color;
 					centers[pixel.l].x += pixel.x;
@@ -246,18 +250,88 @@ void Image::SLIC()
 		}
 	}
 
+	// Enforcement of connectivity.
+	const int dx[] = {-1, 0, 1, 0};
+	const int dy[] = {0, -1, 0, 1};
+
+	int newCenters[height][width];
+	for (size_t y = 0; y < height; ++y) {
+		for (size_t x = 0; x < width; ++x) {
+			newCenters[y][x] = -1;
+		}
+	}
+
+	int label = 0;
+	int neighborLabel = 0;
+	const int limit = (height*width) / ((int) centers.size());
+
+	for (size_t y = 0; y < height; ++y) {
+		for (size_t x = 0; x < width; ++x) {
+			if (newCenters[y][x] == -1) {
+				std::vector<Pixel> segment;
+				segment.push_back(Pixel(x, y));
+
+				// Check 4-connected neighborhood to find the label
+				// (cluster) of an adjacent pixel.
+				for (size_t i = 0; i < 4; ++i) {
+					int nx = segment[0].x + dx[i];
+					int ny = segment[0].y + dy[i];
+
+					if (nx < 0 || ny < 0 || nx >= width || ny >= height)
+						continue;
+
+					if (newCenters[ny][nx] >= 0) {
+						neighborLabel = newCenters[ny][nx];
+					}
+				}
+
+				int count = 1;
+				for (int c = 0; c < count; ++c) {
+					for (size_t i = 0; i < 4; ++i) {
+						int nx = segment[c].x + dx[i];
+						int ny = segment[c].y + dy[i];
+
+						if (nx < 0 || ny < 0 || nx >= width || ny >= height)
+							continue;
+
+						if (newCenters[ny][nx] == -1 && pixels[ny][nx].l == pixels[y][x].l) {
+							segment.push_back(Pixel(nx, ny));
+							newCenters[ny][nx] = label;
+							++count;
+						}
+					}
+				}
+
+				if (count <= limit >> 2) {
+					--label;
+					for (int c = 0; c < count; ++c) {
+						newCenters[(int) segment[c].y][(int) segment[c].x] = neighborLabel;
+					}
+				}
+
+				++label;
+			}
+		}
+	}
+
+	// for (size_t y = 0; y < height; ++y) {
+	// 	for (size_t x = 0; x < height; ++x) {
+	// 		pixels[y*width + x].l = newCenters[y][x];
+	// 	}
+	// }
+
+	// visualizeAssignedCenters(pixels, width, height);
+
 	// Superpixelate the image.
 	for (size_t y = 0; y < height; ++y) {
 		for (size_t x = 0; x < width; ++x) {
-			Pixel center = centers[pixels[y*width + x].l];
+			// Pixel &center = centers.at(newCenters[y][x]);
+			Pixel &center = centers.at(pixels[y][x].l);
 			data[4*y*width + 4*x] = (unsigned char) center.color.r;
 			data[4*y*width + 4*x + 1] = (unsigned char) center.color.g;
 			data[4*y*width + 4*x + 2] = (unsigned char) center.color.b;
 		}
 	}
-
-	// Lacks enforcement of connectivity.
-	;
 
 	show();
 }
